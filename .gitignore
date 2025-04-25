@@ -1,0 +1,35 @@
+# Byte-compiled / cache
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+
+# Jupyter/IPython stuff
+.ipynb_checkpoints/
+
+# Environment files
+mlp_env/
+
+# OS-specific
+.DS_Store
+Thumbs.db
+
+# IDEs/editors
+.vscode/
+.idea/
+*.swp
+
+# Logs and data artifacts
+*.log
+*.csv
+*.tsv
+*.h5
+
+# Virtual environments (if any)
+*.egg-info/
+dist/
+build/
+
+# Output images or animations (if you save plots)
+*.png
+*.gif
