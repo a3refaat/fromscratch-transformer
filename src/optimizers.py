@@ -1,12 +1,18 @@
 import numpy as np
+from .typing_helpers import ArrayType
 
 class Optimizer():
+    def __init__(self, device_manager=None):
+        self.device = device_manager
+        self.xp = device_manager.xp if device_manager else np  # fallback to CPU by default
+
     def update_weights(self, layer):
         raise NotImplementedError("Weight updates must be implemented by subclasses")
 
 class SGD(Optimizer):
-    def __init__(self, eta):
+    def __init__(self, eta, device_manager=None):
         self.eta = eta
+        super().__init__(device_manager=device_manager)
         
     def update_weights(self, layer):
         if hasattr(layer, "weights") and hasattr(layer, "dW"):
@@ -20,10 +26,11 @@ class SGD(Optimizer):
         return
     
 class Momentum(Optimizer):
-    def __init__(self, eta, beta):
+    def __init__(self, eta, beta, device_manager=None):
         self.beta = beta
         self.eta = eta
         self.momentum_vector = {}
+        super().__init__(device_manager=device_manager)
 
     def update_weights(self, layer):
         layer_id = id(layer)
@@ -31,14 +38,14 @@ class Momentum(Optimizer):
         if layer_id not in self.momentum_vector:
             if hasattr(layer, "weights") and hasattr(layer, "biases"):
                 self.momentum_vector[layer_id] = { 
-                    "mW": np.zeros_like(layer.weights),
-                    "mb": np.zeros_like(layer.biases)  
+                    "mW": self.xp.zeros_like(layer.weights),
+                    "mb": self.xp.zeros_like(layer.biases)  
                 }
 
             if hasattr(layer, "_gamma") and hasattr(layer, "_beta"):
                 self.momentum_vector[layer_id].update({
-                    "mGamma": np.zeros_like(layer._gamma),
-                    "mBeta": np.zeros_like(layer._beta)
+                    "mGamma": self.xp.zeros_like(layer._gamma),
+                    "mBeta": self.xp.zeros_like(layer._beta)
                 })
 
          
@@ -58,7 +65,7 @@ class Momentum(Optimizer):
         return
 
 class Adam(Optimizer):
-    def __init__(self, eta, beta1, beta2):
+    def __init__(self, eta, beta1, beta2, device_manager=None):
         self.beta1 = beta1
         self.beta2 = beta2
 
@@ -66,6 +73,8 @@ class Adam(Optimizer):
         self.first_moment = {}
         self.second_moment = {}
         self.timestep = {}
+
+        super().__init__(device_manager=device_manager)
 
     def update_weights(self, layer):
         layer_id = id(layer)
@@ -79,24 +88,24 @@ class Adam(Optimizer):
         if layer_id not in self.first_moment:
             if hasattr(layer, "weights") and hasattr(layer, "biases"):
                 self.first_moment[layer_id] = { 
-                    "mW": np.zeros_like(layer.weights),
-                    "mb": np.zeros_like(layer.biases)  
+                    "mW": self.xp.zeros_like(layer.weights),
+                    "mb": self.xp.zeros_like(layer.biases)  
                 }
 
                 self.second_moment[layer_id] = {
-                    "sW": np.zeros_like(layer.weights),
-                    "sb": np.zeros_like(layer.biases)
+                    "sW": self.xp.zeros_like(layer.weights),
+                    "sb": self.xp.zeros_like(layer.biases)
                 }
 
             if hasattr(layer, "_gamma") and hasattr(layer, "_beta"):
                 self.first_moment[layer_id].update({
-                    "mGamma": np.zeros_like(layer._gamma),
-                    "mBeta": np.zeros_like(layer._beta)
+                    "mGamma": self.xp.zeros_like(layer._gamma),
+                    "mBeta": self.xp.zeros_like(layer._beta)
                 })
 
                 self.second_moment[layer_id] = {
-                    "sGamma": np.zeros_like(layer._gamma),
-                    "sBeta": np.zeros_like(layer._beta)
+                    "sGamma": self.xp.zeros_like(layer._gamma),
+                    "sBeta": self.xp.zeros_like(layer._beta)
                 }
         
         if hasattr(layer, "weights") and hasattr(layer, "dW"):
@@ -110,8 +119,8 @@ class Adam(Optimizer):
             s_hatw = self.second_moment[layer_id]["sW"]/(1 - self.beta2**t)
             s_hatb = self.second_moment[layer_id]["sb"]/(1 - self.beta2**t)
 
-            layer.weights += self.eta*m_hatw/(np.sqrt(s_hatw + 1e-6))
-            layer.biases += self.eta*m_hatb/(np.sqrt(s_hatb + 1e-6))
+            layer.weights += self.eta*m_hatw/(self.xp.sqrt(s_hatw + 1e-6))
+            layer.biases += self.eta*m_hatb/(self.xp.sqrt(s_hatb + 1e-6))
         
         elif hasattr(layer, "_gamma") and hasattr(layer, "_beta"):
             self.first_moment[layer_id]["mGamma"] = self.beta1*self.first_moment[layer_id]["mGamma"] - (1 - self.beta1)*layer.dGamma
@@ -124,8 +133,8 @@ class Adam(Optimizer):
             s_hatg = self.second_moment[layer_id]["sGamma"]/(1 - self.beta2**t)
             s_hat_beta = self.second_moment[layer_id]["sBeta"]/(1 - self.beta2**t)
 
-            layer._gamma += self.eta*m_hatg/(np.sqrt(s_hatg + 1e-6))
-            layer._beta += self.eta*m_hat_beta/(np.sqrt(s_hat_beta + 1e-6))
+            layer._gamma += self.eta*m_hatg/(self.xp.sqrt(s_hatg + 1e-6))
+            layer._beta += self.eta*m_hat_beta/(self.xp.sqrt(s_hat_beta + 1e-6))
 
         return
 
